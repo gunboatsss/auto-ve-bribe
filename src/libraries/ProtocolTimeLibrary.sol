@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity >=0.8.19;
 
-
 // taken from https://github.com/aerodrome-finance/contracts/blob/main/contracts/libraries/ProtocolTimeLibrary.sol
 library ProtocolTimeLibrary {
     uint256 internal constant WEEK = 7 days;
