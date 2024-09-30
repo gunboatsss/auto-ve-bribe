@@ -5,5 +5,6 @@ libs = ["lib"]
 remappings = [
     "solady/=lib/solady/src"
 ]
-
+evm_version = "cancun"
+verbosity = 2
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
