@@ -15,7 +15,7 @@ contract AutoVeBribe is Ownable {
     IReward public bribeVotingReward;
 
     mapping(address _token => uint256 amountPerEpoch) public amountToBribeByTokenPerEpoch;
-    mapping(address _token => uint256 lastBribeTime) public lastBribeTimeByToken;
+    mapping(address _token => uint256 lastBribeTime) public nextBribeTimeByToken;
 
     error GaugeAlreadySet();
     error NotAGauge();
@@ -23,6 +23,8 @@ contract AutoVeBribe is Ownable {
     error AlreadySentThisEpoch(address _token);
     error ZeroToken(address _token);
     error InvalidDistributionTime();
+
+    error GaugeIsStillAlive();
 
     constructor(address _voter) {
         voter = IVoter(_voter);
@@ -42,15 +44,15 @@ contract AutoVeBribe is Ownable {
     }
 
     function distribute(address _token) public {
-        // Check the last time bribe was distributed
-        uint256 lastDistributed = lastBribeTimeByToken[_token];
         if (
             ProtocolTimeLibrary.epochVoteStart(block.timestamp) > block.timestamp
                 || ProtocolTimeLibrary.epochVoteEnd(block.timestamp) < block.timestamp
         ) {
             revert InvalidDistributionTime();
         }
-        if (block.timestamp - lastDistributed < ProtocolTimeLibrary.WEEK) {
+
+        // Check the last time bribe was distributed
+        if (block.timestamp < nextBribeTimeByToken[_token]) {
             revert AlreadySentThisEpoch(_token);
         }
 
@@ -64,7 +66,7 @@ contract AutoVeBribe is Ownable {
         if (amountToSend == 0) {
             revert ZeroToken(_token);
         }
-        lastBribeTimeByToken[_token] = block.timestamp;
+        nextBribeTimeByToken[_token] = ProtocolTimeLibrary.epochVoteEnd(block.timestamp);
 
         SafeTransferLib.safeApprove(_token, address(bribeVotingReward), amountToSend);
         bribeVotingReward.notifyRewardAmount(_token, amountToSend);
@@ -80,5 +82,14 @@ contract AutoVeBribe is Ownable {
 
     function setTokenAmountPerEpoch(address _token, uint256 _amount) external onlyOwner {
         amountToBribeByTokenPerEpoch[_token] = _amount;
+    }
+
+    // ADMIN FUNCTION
+
+    function recoverERC20(address _token) external onlyOwner {
+        if (voter.isWhitelistedToken(_token) && voter.isAlive(gauge)) {
+            revert GaugeIsStillAlive();
+        }
+        SafeTransferLib.safeTransferAll(_token, msg.sender);
     }
 }

@@ -24,12 +24,16 @@ contract AutoVeBribeFactoryTest is Test {
         vm.warp(ProtocolTimeLibrary.epochVoteStart(block.timestamp) + 1);
     }
 
-    function test_sanity() view public {
+    function test_sanity() public view {
         assert(factory.implementation() != address(0));
         assertEq(factory.getLength(), 0);
     }
 
     function test_createNewBribe() public {
+        vm.expectEmit(true, true, true, false);
+        emit AutoVeBribeFactory.NewAutoBribeCreated(
+            vm.computeCreateAddress(address(factory), vm.getNonce(address(factory))), gauge
+        );
         address newBribe = factory.deployAutoVeBribe(gauge, owner);
         assertEq(factory.getLength(), 1);
         assertEq(factory.getBribe(0), newBribe);

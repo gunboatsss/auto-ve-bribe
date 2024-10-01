@@ -11,6 +11,8 @@ contract AutoVeBribeFactory {
 
     address[] public autoBribes;
 
+    event NewAutoBribeCreated(address indexed autoBribe, address indexed gauge);
+
     constructor(address _voter) {
         implementation = address(new AutoVeBribe(_voter));
     }
@@ -27,6 +29,7 @@ contract AutoVeBribeFactory {
         AutoVeBribe newBribe = AutoVeBribe(LibClone.clone_PUSH0(implementation));
         newBribe.initialize(_gauge, _owner);
         autoBribes.push(address(newBribe));
+        emit NewAutoBribeCreated(address(newBribe), _gauge);
         return address(newBribe);
     }
 
