@@ -15,6 +15,7 @@ contract AutoVeBribeTest is Test {
     AutoVeBribe autoBribe;
     AutoVeBribeFactory factory;
     address token = 0x940181a94A35A4569E4529A3CDfB74e38FD98631; // AERO
+    address token2 = 0x4200000000000000000000000000000000000006; // WETH
     address owner = address(666666666666666);
     address gauge = 0x4F09bAb2f0E15e2A078A227FE1537665F55b8360; // AERO/USDC gauge
 
@@ -60,5 +61,35 @@ contract AutoVeBribeTest is Test {
     function test_cannotReinit() public {
         vm.expectRevert(AutoVeBribe.GaugeAlreadySet.selector);
         autoBribe.initialize(gauge, owner);
+    }
+
+    function test_cannotDistributeBeforeEpochStart() public {
+        vm.warp(ProtocolTimeLibrary.epochVoteStart(block.timestamp) - 1);
+        vm.expectRevert(AutoVeBribe.InvalidDistributionTime.selector);
+        autoBribe.distribute(token);
+    }
+
+    function test_cannotDistributeAfterEpochEnd() public {
+        vm.warp(ProtocolTimeLibrary.epochVoteEnd(block.timestamp) + 1);
+        vm.expectRevert(AutoVeBribe.InvalidDistributionTime.selector);
+        autoBribe.distribute(token);
+    }
+
+    function test_cannotDistributeZeroToken() public {
+        vm.expectRevert(abi.encodeWithSelector(AutoVeBribe.ZeroToken.selector, (token)));
+        autoBribe.distribute(token);
+    }
+
+    function test_distributeMultipleToken() public {
+        deal(token, address(autoBribe), 100e18);
+        deal(token2, address(autoBribe), 1e18);
+        vm.prank(owner);
+        autoBribe.setTokenAmountPerEpoch(token, 50e18);
+        address[] memory tokens = new address[](2);
+        tokens[0] = token;
+        tokens[1] = token2;
+        autoBribe.distribute(tokens);
+        assertEq(SafeTransferLib.balanceOf(token, address(autoBribe)), 50e18);
+        assertEq(SafeTransferLib.balanceOf(token2, address(autoBribe)), 0);
     }
 }
