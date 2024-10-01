@@ -8,6 +8,9 @@ import {IVoter} from "src/interfaces/IVoter.sol";
 
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 
+import {OpsProxyMock} from "./OpsProxyMock.sol";
+import {IOpsProxy} from "src/interfaces/IOpsProxy.sol";
+
 import {Test, console} from "forge-std/Test.sol";
 import {AutoVeBribeFactory} from "src/AutoVeBribeFactory.sol";
 import {ProtocolTimeLibrary} from "src/libraries/ProtocolTimeLibrary.sol";
@@ -137,5 +140,53 @@ contract AutoVeBribeTest is Test {
         vm.prank(owner);
         autoBribe.recoverERC20(token);
         assertEq(SafeTransferLib.balanceOf(token, address(autoBribe)), 0);
+    }
+
+    function test_chainlinkAutomation() public {
+        deal(token, address(autoBribe), 1e18);
+        address[] memory tokenArr = new address[](2);
+        address[] memory expectedArr = new address[](1);
+        tokenArr[0] = token2;
+        tokenArr[1] = token;
+        expectedArr[0] = token;
+        (bool performUpkeep, bytes memory data) = autoBribe.checkUpkeep(abi.encode(tokenArr));
+        console.log(SafeTransferLib.balanceOf(token, address(autoBribe)));
+        console.log(autoBribe.nextBribeTimeByToken(token));
+        console.log(string(data));
+        assertTrue(performUpkeep, "keeper checker failed");
+        address[] memory result = abi.decode(data, (address[]));
+        assertEq(expectedArr, result);
+        autoBribe.performUpkeep(data);
+        assertEq(SafeTransferLib.balanceOf(token, address(autoBribe)), 0);
+    }
+
+    function test_chainlinkAutomationNotHappy() public {
+        address[] memory tokenArr = new address[](2);
+        tokenArr[0] = token2;
+        tokenArr[1] = token;
+        bool performUpkeep;
+        (performUpkeep,) = autoBribe.checkUpkeep(abi.encode(tokenArr));
+        assertFalse(performUpkeep, "token balance is 0 but keeper is allowing it");
+        deal(token, address(autoBribe), 1e18);
+        vm.warp(ProtocolTimeLibrary.epochVoteEnd(block.timestamp) + 1);
+        (performUpkeep,) = autoBribe.checkUpkeep(abi.encode(tokenArr));
+        assertFalse(performUpkeep, "too late to bribe");
+        vm.warp(ProtocolTimeLibrary.epochVoteStart(block.timestamp) - 1);
+        (performUpkeep,) = autoBribe.checkUpkeep(abi.encode(tokenArr));
+        assertFalse(performUpkeep, "too early to bribe");
+    }
+
+    function test_GelatoAutomate() public {
+        deal(token, address(autoBribe), 1e18);
+        address[] memory tokenArr = new address[](2);
+        address[] memory expectedArr = new address[](1);
+        tokenArr[0] = token2;
+        tokenArr[1] = token;
+        expectedArr[0] = token;
+        (bool performUpkeep, bytes memory data) = autoBribe.checkUpkeepGelato(tokenArr);
+        OpsProxyMock ops = new OpsProxyMock();
+        assertTrue(performUpkeep, "keeper checker failed");
+        (bool succ, ) = address(ops).call{value: 0}(data);
+        assertTrue(succ, "Gelato Automate execution failed");
     }
 }
