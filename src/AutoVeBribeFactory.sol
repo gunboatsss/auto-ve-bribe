@@ -2,6 +2,8 @@
 pragma solidity >=0.8.27;
 
 import {LibClone} from "solady/utils/LibClone.sol";
+import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
+
 import {AutoVeBribe} from "./AutoVeBribe.sol";
 
 contract AutoVeBribeFactory {
@@ -26,5 +28,9 @@ contract AutoVeBribeFactory {
         newBribe.initialize(_gauge, _owner);
         autoBribes.push(address(newBribe));
         return address(newBribe);
+    }
+
+    function recoverERC20(address _token) external {
+        SafeTransferLib.safeTransferAll(_token, msg.sender);
     }
 }

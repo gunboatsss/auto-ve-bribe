@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity >=0.8.27;
 
+import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
+
 import {Test, console} from "forge-std/Test.sol";
 import {AutoVeBribeFactory} from "src/AutoVeBribeFactory.sol";
 import {ProtocolTimeLibrary} from "src/libraries/ProtocolTimeLibrary.sol";
@@ -9,6 +11,7 @@ import {AutoVeBribe} from "src/AutoVeBribe.sol";
 contract AutoVeBribeFactoryTest is Test {
     AutoVeBribeFactory factory;
     address owner = address(666666666666666);
+    address token = 0x940181a94A35A4569E4529A3CDfB74e38FD98631; // AERO
     address gauge = 0x4F09bAb2f0E15e2A078A227FE1537665F55b8360; // AERO/USDC gauge
 
     function setUp() public {
@@ -39,5 +42,11 @@ contract AutoVeBribeFactoryTest is Test {
     function test_invalidGauge() public {
         vm.expectRevert();
         factory.deployAutoVeBribe(address(69), owner);
+    }
+
+    function test_recoverERC20() public {
+        deal(token, address(factory), 1e18);
+        factory.recoverERC20(token);
+        assertEq(SafeTransferLib.balanceOf(token, address(factory)), 0);
     }
 }
