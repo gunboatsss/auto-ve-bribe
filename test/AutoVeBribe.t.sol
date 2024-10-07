@@ -6,6 +6,7 @@ import {AutoVeBribe} from "src/AutoVeBribe.sol";
 
 import {IVoter} from "src/interfaces/IVoter.sol";
 
+import {LibClone} from "solady/utils/LibClone.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 
 import {OpsProxyMock} from "./OpsProxyMock.sol";
@@ -32,11 +33,20 @@ contract AutoVeBribeTest is Test {
         console.log("end time", ProtocolTimeLibrary.epochVoteEnd(block.timestamp));
         vm.warp(ProtocolTimeLibrary.epochVoteStart(block.timestamp) + 1);
         autoBribe = AutoVeBribe(factory.deployAutoVeBribe(gauge, owner));
+    }
+
+    function test_view() public view {
+        console.log(address(voter));
+        console.log(gauge);
+        console.logBytes(LibClone.argsOnClone(address(autoBribe)));
         console.log("voter address", address(autoBribe.voter()));
         console.log("bribe address", voter.gaugeToBribe(gauge));
         console.log("owner address", autoBribe.owner());
         console.log("gauge address", autoBribe.gauge());
         console.log("bribe in contract", address(autoBribe.bribeVotingReward()));
+        assertEq(address(autoBribe.voter()), address(voter), "voter not match");
+        assertEq(address(autoBribe.gauge()), gauge, "gauge not match");
+        assertEq(address(autoBribe.bribeVotingReward()), voter.gaugeToBribe(gauge), "reward not match");
     }
 
     function test_bribe() public {
@@ -79,8 +89,8 @@ contract AutoVeBribeTest is Test {
     }
 
     function test_cannotReinit() public {
-        vm.expectRevert(AutoVeBribe.GaugeAlreadySet.selector);
-        autoBribe.initialize(gauge, owner);
+        vm.expectRevert();
+        autoBribe.initialize(owner);
     }
 
     function test_cannotDistributeBeforeEpochStart() public {

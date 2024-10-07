@@ -1,20 +1,26 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.27;
+pragma solidity 0.8.27;
 
 import {LibClone} from "solady/utils/LibClone.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 
+import {IVoter} from "./interfaces/IVoter.sol";
 import {AutoVeBribe} from "./AutoVeBribe.sol";
 
 contract AutoVeBribeFactory {
-    address public implementation;
+    AutoVeBribe immutable public implementation;
+    IVoter immutable public voter;
 
     address[] public autoBribes;
 
     event NewAutoBribeCreated(address indexed autoBribe, address indexed gauge);
 
+    error NotAGauge();
+
     constructor(address _voter) {
-        implementation = address(new AutoVeBribe(_voter));
+        voter = IVoter(_voter);
+        implementation = new AutoVeBribe();
+        implementation.initialize(address(this));
     }
 
     function getLength() external view returns (uint256) {
@@ -26,8 +32,13 @@ contract AutoVeBribeFactory {
     }
 
     function deployAutoVeBribe(address _gauge, address _owner) external returns (address newAutoBribe) {
-        AutoVeBribe newBribe = AutoVeBribe(LibClone.clone_PUSH0(implementation));
-        newBribe.initialize(_gauge, _owner);
+        if (!voter.isGauge(_gauge)) {
+            revert NotAGauge();
+        }
+        address bribeVotingReward = voter.gaugeToBribe(_gauge);
+        bytes memory args = abi.encodePacked(address(voter), _gauge, bribeVotingReward);
+        AutoVeBribe newBribe = AutoVeBribe(LibClone.clone(address(implementation), args));
+        newBribe.initialize(_owner);
         autoBribes.push(address(newBribe));
         emit NewAutoBribeCreated(address(newBribe), _gauge);
         return address(newBribe);

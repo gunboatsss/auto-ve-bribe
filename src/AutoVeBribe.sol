@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.27;
+pragma solidity 0.8.27;
 
 import {IReward} from "./interfaces/IReward.sol";
 import {IVoter} from "./interfaces/IVoter.sol";
@@ -9,20 +9,17 @@ import {AutomationCompatibleInterface} from "./interfaces/AutomationCompatibleIn
 
 import {IOpsProxy} from "./interfaces/IOpsProxy.sol";
 
+import {LibClone} from "solady/utils/LibClone.sol";
 import {Ownable} from "solady/auth/Ownable.sol";
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 
 contract AutoVeBribe is Ownable, AutomationCompatibleInterface {
-    IVoter public immutable voter;
-
-    address public gauge;
-    IReward public bribeVotingReward;
+    bool public inited;
 
     mapping(address _token => uint256 amountPerEpoch) public amountToBribeByTokenPerEpoch;
     mapping(address _token => uint256 lastBribeTime) public nextBribeTimeByToken;
 
-    error GaugeAlreadySet();
-    error NotAGauge();
+    event SetNewAmountPerEpoch(address indexed token, uint256 indexed amount);
 
     error AlreadySentThisEpoch(address _token);
     error NotWhitelisted(address _token);
@@ -31,21 +28,31 @@ contract AutoVeBribe is Ownable, AutomationCompatibleInterface {
 
     error GaugeIsStillAlive();
 
-    constructor(address _voter) {
-        voter = IVoter(_voter);
+    function initialize(address _owner) external {
+        if(inited) revert AlreadyInitialized();
+        _initializeOwner(_owner);
+        inited = true;
     }
 
-    function initialize(address _gauge, address _owner) external {
-        if (gauge != address(0)) {
-            revert GaugeAlreadySet();
+    function voter() public view returns (IVoter _voter) {
+        bytes memory res = LibClone.argsOnClone(address(this), 0, 20);
+        assembly {
+            _voter := mload(add(res, 20))
         }
-        if (!voter.isGauge(_gauge)) {
-            revert NotAGauge();
+    }
+
+    function gauge() public view returns (address _gauge) {
+        bytes memory res = LibClone.argsOnClone(address(this), 20, 40);
+        assembly {
+            _gauge := mload(add(res, 20))
         }
-        bribeVotingReward = IReward(voter.gaugeToBribe(_gauge));
-        // console.log("initalizing bribe with ", address(bribeVotingReward));
-        gauge = _gauge;
-        _initializeOwner(_owner);
+    }
+
+    function bribeVotingReward() public view returns (IReward _bribeVotingReward) {
+        bytes memory res = LibClone.argsOnClone(address(this), 40, 60);
+        assembly {
+            _bribeVotingReward := mload(add(res, 20))
+        }
     }
 
     enum Err {
@@ -103,7 +110,7 @@ contract AutoVeBribe is Ownable, AutomationCompatibleInterface {
         uint256 tokenCount;
         for (uint256 i = 0; i < length; i++) {
             address token = tokens[i];
-            if (!voter.isWhitelistedToken(token)) {
+            if (!(voter().isWhitelistedToken(token))) {
                 continue;
             }
             if (SafeTransferLib.balanceOf(token, address(this)) > 0 && block.timestamp > nextBribeTimeByToken[token]) {
@@ -139,7 +146,7 @@ contract AutoVeBribe is Ownable, AutomationCompatibleInterface {
             revert AlreadySentThisEpoch(_token);
         }
 
-        if (!voter.isWhitelistedToken(_token)) {
+        if (!(voter().isWhitelistedToken(_token))) {
             revert NotWhitelisted(_token);
         }
 
@@ -155,8 +162,8 @@ contract AutoVeBribe is Ownable, AutomationCompatibleInterface {
         }
         nextBribeTimeByToken[_token] = ProtocolTimeLibrary.epochVoteEnd(block.timestamp);
 
-        SafeTransferLib.safeApprove(_token, address(bribeVotingReward), amountToSend);
-        bribeVotingReward.notifyRewardAmount(_token, amountToSend);
+        SafeTransferLib.safeApprove(_token, address(bribeVotingReward()), amountToSend);
+        bribeVotingReward().notifyRewardAmount(_token, amountToSend);
     }
 
     function distribute(address[] memory _token) public {
@@ -169,12 +176,13 @@ contract AutoVeBribe is Ownable, AutomationCompatibleInterface {
 
     function setTokenAmountPerEpoch(address _token, uint256 _amount) external onlyOwner {
         amountToBribeByTokenPerEpoch[_token] = _amount;
+        emit SetNewAmountPerEpoch(_token, _amount);
     }
 
     // ADMIN FUNCTION
 
     function recoverERC20(address _token) external onlyOwner {
-        if (voter.isWhitelistedToken(_token) && voter.isAlive(gauge)) {
+        if (voter().isWhitelistedToken(_token) && voter().isAlive(gauge())) {
             revert GaugeIsStillAlive();
         }
         SafeTransferLib.safeTransferAll(_token, msg.sender);

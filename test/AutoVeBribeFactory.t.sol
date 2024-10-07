@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity >=0.8.27;
+pragma solidity 0.8.27;
 
 import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
 
@@ -25,7 +25,7 @@ contract AutoVeBribeFactoryTest is Test {
     }
 
     function test_sanity() public view {
-        assert(factory.implementation() != address(0));
+        assert(address(factory.implementation()) != address(0));
         assertEq(factory.getLength(), 0);
     }
 
