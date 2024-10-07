@@ -8,8 +8,8 @@ import {IVoter} from "./interfaces/IVoter.sol";
 import {AutoVeBribe} from "./AutoVeBribe.sol";
 
 contract AutoVeBribeFactory {
-    AutoVeBribe immutable public implementation;
-    IVoter immutable public voter;
+    AutoVeBribe public immutable implementation;
+    IVoter public immutable voter;
 
     address[] public autoBribes;
 

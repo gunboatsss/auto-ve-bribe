@@ -29,7 +29,7 @@ contract AutoVeBribe is Ownable, AutomationCompatibleInterface {
     error GaugeIsStillAlive();
 
     function initialize(address _owner) external {
-        if(inited) revert AlreadyInitialized();
+        if (inited) revert AlreadyInitialized();
         _initializeOwner(_owner);
         inited = true;
     }
@@ -96,7 +96,6 @@ contract AutoVeBribe is Ownable, AutomationCompatibleInterface {
             IOpsProxy.executeCall, (address(this), abi.encodeWithSignature("distribute(address[])", (tokenArr)), 0)
         );
     }
-
 
     function _checkUpkeep(address[] memory tokens) internal view returns (Err err, address[] memory tokenArr) {
         if (

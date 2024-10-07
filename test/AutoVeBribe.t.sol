@@ -196,7 +196,7 @@ contract AutoVeBribeTest is Test {
         (bool performUpkeep, bytes memory data) = autoBribe.checkUpkeepGelato(tokenArr);
         OpsProxyMock ops = new OpsProxyMock();
         assertTrue(performUpkeep, "keeper checker failed");
-        (bool succ, ) = address(ops).call{value: 0}(data);
+        (bool succ,) = address(ops).call{value: 0}(data);
         assertTrue(succ, "Gelato Automate execution failed");
     }
 }
