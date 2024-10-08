@@ -1,66 +1,22 @@
-## Foundry
+## AutoVeBribe
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+AutoVeBribe is a contract that hold token to incentivize voting reward (bribe) for Velodrome/Aerodrome.
+Each week it can distribute the token only once between the voting period.
 
-Foundry consists of:
+### Role
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+- Owner - Set amount to distribute per epoch and recover the token (if gague is blacklisted or not whitelisted token)
+- Keeper - Someone who trigger the contract to send token to `BribeVotingReward`, optionally can be Chainlink Automation/Gelato Automate.
 
-## Documentation
+### Metrics
 
-https://book.getfoundry.sh/
+- nSLOC: 184
+- Complexity score: 191
 
-## Usage
+### Setup
 
-### Build
-
-```shell
-$ forge build
+```bash
+forge install
 ```
 
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
+To test, setup Base RPC URL with env `BASE_RPC_URL`
