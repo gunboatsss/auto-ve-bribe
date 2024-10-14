@@ -33,6 +33,7 @@ contract AutoVeBribeTest is Test {
         console.log("end time", ProtocolTimeLibrary.epochVoteEnd(block.timestamp));
         vm.warp(ProtocolTimeLibrary.epochVoteStart(block.timestamp) + 1);
         autoBribe = AutoVeBribe(factory.deployAutoVeBribe(gauge, owner));
+        deal(token, address(autoBribe.bribeVotingReward()), 0, true);
     }
 
     function test_view() public view {
@@ -69,11 +70,34 @@ contract AutoVeBribeTest is Test {
         assertEq(SafeTransferLib.balanceOf(token, address(autoBribe)), 0.4e18);
     }
 
+    function test_setBudget() public {
+        deal(token, address(autoBribe), 1e18);
+        deal(token, owner, 1e18);
+        vm.startPrank(owner);
+        SafeTransferLib.safeApprove(token, address(autoBribe), 2e18);
+        autoBribe.setTokenBudget(token, 2e18);
+        autoBribe.setTokenAmountPerEpoch(token, 1e18);
+        autoBribe.distribute(token);
+        assertEq(SafeTransferLib.balanceOf(token, address(autoBribe)), 0);
+        assertEq(SafeTransferLib.balanceOf(token, owner), 1e18);
+        assertEq(autoBribe.tokenBudget(token), 2e18);
+        skip(1 weeks + 1);
+        autoBribe.distribute(token);
+        assertEq(SafeTransferLib.balanceOf(token, owner), 0);
+        assertEq(autoBribe.tokenBudget(token), 1e18);
+        skip(1 weeks);
+        deal(token, owner, 0.9e18);
+        vm.expectRevert();
+        autoBribe.distribute(token);
+    }
+
     function test_setAmount() public {
         vm.expectRevert();
         autoBribe.setTokenAmountPerEpoch(token, 0.5e18);
         vm.prank(owner);
         autoBribe.setTokenAmountPerEpoch(token, 0.5e18);
+        assertTrue(autoBribe.isReward(token), "token not in the list");
+        assertEq(autoBribe.rewardToken(0), token, "token not in the array");
         deal(token, address(autoBribe), 1e18);
         autoBribe.distribute(token);
         assertEq(SafeTransferLib.balanceOf(token, address(autoBribe)), 0.5e18);
@@ -184,6 +208,29 @@ contract AutoVeBribeTest is Test {
         vm.warp(ProtocolTimeLibrary.epochVoteStart(block.timestamp) - 1);
         (performUpkeep,) = autoBribe.checkUpkeep(abi.encode(tokenArr));
         assertFalse(performUpkeep, "too early to bribe");
+    }
+
+    function test_chainlinkWithBudget() public {
+        address[] memory tokenArr = new address[](2);
+        tokenArr[0] = token2;
+        tokenArr[1] = token;
+        vm.startPrank(owner);
+        deal(token, owner, 1e18);
+        SafeTransferLib.safeApprove(token, address(autoBribe), 1e18);
+        autoBribe.setTokenAmountPerEpoch(token, 0.5e18);
+        autoBribe.setTokenBudget(token, 1e18);
+        bool performUpkeep;
+        bytes memory data;
+        (performUpkeep, data) = autoBribe.checkUpkeep(abi.encode(tokenArr));
+        assertTrue(performUpkeep, "checker failed");
+        autoBribe.performUpkeep(data);
+        assertEq(SafeTransferLib.balanceOf(token, owner), 0.5e18);
+        assertEq(SafeTransferLib.balanceOf(token, address(autoBribe)), 0);
+        assertEq(SafeTransferLib.balanceOf(token, address(autoBribe.bribeVotingReward())), 0.5e18);
+        skip(1 weeks);
+        (performUpkeep, data) = autoBribe.checkUpkeep(abi.encode(tokenArr));
+        assertTrue(performUpkeep, "checker failed");
+        autoBribe.performUpkeep(data);
     }
 
     function test_GelatoAutomate() public {
